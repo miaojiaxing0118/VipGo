@@ -3,7 +3,9 @@
     <iframe class="iframe" :src="[url]"></iframe>
     <a-layout-sider id="list" style="overflow-y: scroll;user-select: none;">
       <a-list-item class="item" v-for="(item, index) in list">
-        {{ item.name }} {{ item.year }}
+        <div style="display: flex;flex-direction: row">{{ item.name }}
+          <div style="margin-left: 3px;font-size: 9pt"> {{ item.year }}</div>
+        </div>
         <div style="margin-top: 5px;background-color: #eee;height: 1px;margin-bottom: 5px"></div>
         <div class="div_item_2">
           <div v-if="item['source']" class="item_2" v-for="(item_2, index) in item['source']['eps']"
@@ -112,9 +114,12 @@ export default {
 
   .item {
     padding-left: 10px;
-    padding-right: 10px;
+    padding-right: 5px;
     color: #333;
     font-size: 11pt;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .div_item_2 {
@@ -124,7 +129,7 @@ export default {
 
   .item_2 {
     border: 1px solid #eee;
-    padding: 2px 5px;
+    padding: 2px 3px;
     margin: 2px 2px;
     border-radius: 5px;
     color: #555;

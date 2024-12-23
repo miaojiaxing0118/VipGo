@@ -27,7 +27,7 @@ getVideoFiles = async () => {
             title: fileName,
             url: `http://${localIp}:${port}/${encodeURIComponent(fileName)}`,
         };
-    });
+    }).sort((a, b) => a['title'].localeCompare(b['title']))
 };
 
 function isFile(path) {

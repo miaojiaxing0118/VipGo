@@ -126,10 +126,11 @@ function downloadVideo(win, data) {
 
     console.info("start download...");
     console.info(url, fileName);
-    const args = ['--thread-count', '8',
+    const args = [
         '--save-dir', save_dir,
         '--tmp-dir', save_dir,
         '--save-name', fileName,
+        '--no-log',
         url]
     const process = spawn(exePath, args)
     process.stdout.on("data", (data) => {
@@ -223,22 +224,32 @@ function getVideoList(res) {
     if (!data) {
         return
     }
-    mainWindow.webContents.send('update-list', data)
+
     for (let i = 0; i < data.length; i++) {
         const name = data[i]['name']
         const list = data[i]['source']['eps']
         for (let j = 0; j < list.length; j++) {
-            new_data[list[j]['url']] = name + "_" + re(list[j]['name'])
+            new_data[list[j]['url']] = name + "_" + replaceEpisodes(re(list[j]['name']), list.length)
+
+            data[i]['source']['eps'][j]['name'] = replaceEpisodes(re(data[i]['source']['eps'][j]['name']), list.length)
         }
     }
+    mainWindow.webContents.send('update-list', data)
     new_list_titles = Object.assign({}, new_list_titles, new_data)
     // console.log(new_list_titles)
 }
 
 function re(text) {
     text = text.replace(" ", "")
+    text = text.replace("话", "集")
     text = text.replace(/\t/g, '');
     return text
+}
+
+function replaceEpisodes(str, length) {
+    return str.replace(/第(\d+)集/g, function (match, group1) {
+        return '第' + group1.padStart(length.toString().length, '0') + '集';
+    });
 }
 
 //============嗅探下载视频 end============

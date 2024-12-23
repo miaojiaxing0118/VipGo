@@ -1,6 +1,6 @@
 {
   "name": "vipgo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Vip视频下载工具",
   "main": "main.js",
   "scripts": {

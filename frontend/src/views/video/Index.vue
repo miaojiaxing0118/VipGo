@@ -17,69 +17,120 @@
 <script>
 import axios from "axios";
 import Player from 'xgplayer';
+import 'xgplayer/dist/index.min.css';
 
 export default {
   data() {
     return {
       isShow: false,
+      currentTimeNative: 30,
+      name: '',
+      oldName: '',
       base_url: '',
       videoUrl: '',
       fileList: [],
       list: [],
       video_list: [],
+      video_list_url: [],
       player: {},
       options: {
         id: 'video',
         url: '',
         height: '100%',
         width: '100%',
-        lastPlayTime: 20, //视频起播时间（单位：秒）
         autoplay: true, //自动播放
-        volume: 0.5
+        volume: 0.5,
+        playNext: {urlList: []}
       }
     };
   },
   created() {
     this.base_url = "http://127.0.0.1:3300"
+    this.initDataPre()
 
-    this.name = history.state.name
-    if (this.name) {
-      this.$store.commit("setLastPlayVideoInfo", {name: this.name, currentTime: 0})
-    } else {
-      if (this.$store.state.lastPlayVideoInfo['name']) {
-        this.name = this.$store.state.lastPlayVideoInfo['name']
-        this.options.lastPlayTime = this.$store.state.lastPlayVideoInfo['currentTime']
-      }
-    }
-
-    this.initData(true)
-    try {
-      window.electronApi.getPort().then(port => {
-        this.base_url = "http://127.0.0.1" + ":" + port
-        this.initData(true)
-      })
-    } catch (e) {
-    }
   },
   mounted() {
     this.initPlay()
   },
-  deactivated() {
-    if (this.player) {
-      this.player.destroy()
+  activated() {
+    // console.log("activated", history.state.name)
+    let cName = history.state.name
+    if (cName && cName !== this.oldName) {
+      this.initDataPre()
+    } else {
+      if (this.player.paused) {
+        this.player.play()
+      }
     }
   },
   methods: {
+    initDataPre() {
+      this.oldName = history.state.name
+      this.name = history.state.name
+      if (this.name) {
+        this.$store.commit("setLastPlayVideoInfo", {name: this.name})
+      } else {
+        if (this.$store.state.lastPlayVideoInfo['name']) {
+          this.name = this.$store.state.lastPlayVideoInfo['name']
+        }
+      }
+      this.initData(true)
+      try {
+        window.electronApi.getPort().then(port => {
+          let newBaseUrl = "http://127.0.0.1" + ":" + port
+          if (newBaseUrl !== this.base_url) {
+            this.base_url = newBaseUrl
+            this.initData(true)
+          }
+        })
+      } catch (e) {
+      }
+    },
+
     initPlay() {
       let _this = this;
       this.player = new Player(this.options);
-      this.player.on('timeupdate', (data) => {
-        const currentTime = parseInt(this.player.currentTime)
-        if (currentTime < 10) {
-          return
-        }
-        _this.$store.commit("setLastPlayVideoInfo", {name: _this.name, currentTime: currentTime})
+      this.player.on('play', (data) => {
+        _this.name = _this.getCurrentTitle(_this.player.src)
       })
+      this.player.on('ended', (data) => {
+        _this.nextPlay()
+      })
+      this.player.on('playnext', (data) => {
+        _this.nextPlay()
+      })
+    },
+    nextPlay() {
+      const url = this.getNextUrl(this.options.url)
+      this.play(url)
+    },
+    play(url) {
+      this.options.url = url
+      this.player.resetState()
+      this.player.setConfig(this.options)
+      this.player.reload()
+      this.player.play()
+      this.player.currentTime = this.currentTimeNative
+    },
+    getNextUrl(url) {
+      for (let i = 0; i < this.video_list.length; i++) {
+        if (url && url === this.video_list[i]['url']) {
+          if ((i + 1) <= this.video_list.length - 1) {
+            return this.video_list[i + 1]['url']
+          }
+        }
+      }
+      if (this.video_list.length > 0) {
+        return this.video_list[0]['url']
+      }
+      return ""
+    },
+    getCurrentTitle(url) {
+      for (let i = 0; i < this.video_list.length; i++) {
+        if (url && url === this.video_list[i]['url']) {
+          return this.video_list[i]['title']
+        }
+      }
     },
     clickMenu() {
       this.isShow = !this.isShow
@@ -91,40 +142,48 @@ export default {
       this.videoUrl = this.video_list[index].url;
       this.name = this.video_list[index]['title'];
       this.isShow = false
-      this.$store.commit("setLastPlayVideoInfo", {name: this.name, currentTime: 0})
-      this.options.url = this.videoUrl
-      this.player.start(this.videoUrl)
+      this.$store.commit("setLastPlayVideoInfo", {name: this.name})
+      this.play(this.videoUrl)
     },
-
     initData(isPlay) {
       axios.get(this.base_url + "/api")
         .then(res => {
           const new_data = res.data
           let list = []
+          let new_video_list_url = []
           for (let index in new_data) {
             list.push(new_data[index]['title'])
+            new_video_list_url.push(new_data[index]['url'])
           }
           this.list = list
           this.video_list = new_data
+          this.video_list_url = new_video_list_url
 
-          if (this.video_list.length > 0) {
-            for (let i = 0; i < this.video_list.length; i++) {
-              // console.log("initData", this.video_list[i], this.name)
-              if (this.name && this.name === this.video_list[i]['title']) {
-                this.videoUrl = this.video_list[i]['url'];
-                if (isPlay) {
-                  this.options.url = this.videoUrl
-                  this.player.start(this.videoUrl)
-                }
-                return
+          if (this.video_list.length === 0) {
+            return;
+          }
+          this.options.playNext.urlList = this.video_list_url
+
+          for (let i = 0; i < this.video_list.length; i++) {
+            // console.log("initData", this.video_list[i], this.name)
+            if (this.name && this.name === this.video_list[i]['title']) {
+              this.videoUrl = this.video_list[i]['url'];
+              if (isPlay) {
+                this.options.url = this.videoUrl
+                this.initPlay()
+                this.player.play()
+                this.player.currentTime = this.currentTimeNative
               }
+              return
             }
-            this.videoUrl = this.video_list[0]['url'];
-            this.name = this.video_list[0]['title'];
-            if (isPlay) {
-              this.options.url = this.videoUrl
-              this.player.start(this.videoUrl)
-            }
+          }
+          this.videoUrl = this.video_list[0]['url'];
+          this.name = this.video_list[0]['title'];
+          if (isPlay) {
+            this.options.url = this.videoUrl
+            this.initPlay()
+            this.player.play()
+            this.player.currentTime = this.currentTimeNative
           }
         })
         .catch(err => {

@@ -22,7 +22,11 @@
     </a-layout-sider>
     <a-layout>
       <a-layout-content class="layout-content">
-        <router-view :key="this.$route.fullPath"></router-view>
+        <router-view v-slot="{ Component }" :key="cacheKey()">
+          <keep-alive>
+            <component :is="Component"/>
+          </keep-alive>
+        </router-view>
       </a-layout-content>
     </a-layout>
   </a-layout>
@@ -87,6 +91,12 @@ export default {
     this.menuHandle()
   },
   methods: {
+    cacheKey() {
+      if (this.$route.fullPath.startsWith("/tools")) {
+        return this.$route.fullPath
+      }
+      return ""
+    },
     menuHandle(e) {
       console.info("menuHandle============")
       this.current = e ? e.key : this.current;
